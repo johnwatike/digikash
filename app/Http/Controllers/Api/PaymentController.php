@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Data\TransactionData;
+use App\Enums\AmountFlow;
 use App\Enums\EnvironmentMode;
 use App\Enums\MethodType;
 use App\Enums\TrxStatus;
@@ -12,11 +14,11 @@ use App\Models\Currency as CurrencyModel;
 use App\Models\DepositMethod;
 use App\Models\Merchant;
 use App\Services\MerchantService;
-use App\Services\PaymentIntentService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Transaction;
@@ -24,8 +26,6 @@ use Wallet;
 
 class PaymentController extends Controller
 {
-    public function __construct(protected PaymentIntentService $paymentIntentService) {}
-
     public function initiatePayment(PaymentInitiateRequest $request): JsonResponse
     {
         $validated   = $request->validated();
@@ -86,27 +86,59 @@ class PaymentController extends Controller
         $calculation = $this->calculatePaymentAmounts((float) $validated['payment_amount'], $merchant->fee);
 
         try {
-            $intent = $this->paymentIntentService->createFromMerchantPayment(
-                $merchant,
-                $paymentData,
-                (float) $validated['payment_amount'],
-                $paymentCurrency->code,
-                $environment,
-                $request->attributes->get('idempotency_key'),
-            );
+            DB::beginTransaction();
 
-            $encryptedTrxId = Crypt::encryptString($intent->trx_id);
-            $paymentUrl       = URL::signedRoute('payment.checkout', [
+            $merchantWallet = Wallet::getWalletByUserId($merchant->user->id, $paymentCurrency->code);
+
+            if (! $merchantWallet) {
+                DB::rollBack();
+
+                return response()->json(['error' => 'Receiver wallet for this currency is not available.'], 422);
+            }
+
+            // Create transaction with environment context
+            $transaction = Transaction::create(new TransactionData(
+                user_id: $merchant->user->id,
+                trx_type: TrxType::RECEIVE_PAYMENT,
+                amount: $calculation['amount'],
+                amount_flow: AmountFlow::PLUS,
+                fee: $calculation['fee'],
+                currency: $paymentCurrency->code,
+                net_amount: $calculation['net_amount'],
+                payable_amount: $validated['payment_amount'],
+                payable_currency: $paymentCurrency->code,
+                wallet_reference: $merchantWallet->uuid,
+                trx_data: $paymentData,
+                description: $paymentData['description'] ?? __('Payment from :customer', ['customer' => $paymentData['customer_name']]),
+                status: TrxStatus::PENDING
+            ));
+
+            // Add sandbox flag to transaction for easy identification
+            if ($isSandbox) {
+                $transaction->remarks = 'SANDBOX_TRANSACTION';
+                $transaction->save();
+            }
+
+            DB::commit();
+
+            // Encrypt transaction ID
+            $encryptedTrxId = Crypt::encryptString($transaction->trx_id);
+
+            // Generate Laravel Signed URL with token (No custom hash needed)
+            $paymentUrl = URL::signedRoute('payment.checkout', [
                 'token' => $encryptedTrxId,
-            ], now()->addMinutes(900));
+            ], now()->addMinutes(900)); // URL expires in 900 minutes
 
             return response()->json([
-                'payment_url'    => $paymentUrl,
-                'payment_intent' => $this->paymentIntentService->serializeIntent($intent),
-                'trx_id'         => $intent->trx_id,
-                'info'           => $paymentData,
+                'payment_url' => $paymentUrl,
+                'info'        => $paymentData,
             ]);
         } catch (Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+
+            // Optionally log the exception here before returning a response.
             return response()->json(['error' => $e->getMessage()], 422);
         }
     }
@@ -203,8 +235,7 @@ class PaymentController extends Controller
                 'production' => 'Production Mode - Live payment processing is active',
                 'sandbox'    => 'Test Mode - This is a test transaction. No real money will be charged',
             ],
-            'api_version' => '2.0',
-            'api_versions' => ['1.0', '2.0'],
+            'api_version' => '1.0',
             'status'      => 'active',
         ]);
     }

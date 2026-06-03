@@ -12,19 +12,8 @@ use App\Observers\UserObserver;
 use App\Services\AppConfigService;
 use App\Services\CurrencyService;
 use App\Services\IpInfoService;
-use App\Events\PaymentIntentCreated;
-use App\Events\PaymentIntentRequiresAction;
-use App\Events\PaymentIntentStatusChanged;
-use App\Events\PaymentIntentSucceeded;
-use App\Listeners\LogPaymentIntentEvent;
-use App\Services\FraudRuleEngine;
-use App\Services\LedgerService;
 use App\Services\Payment\PaymentGatewayFactory;
-use App\Services\FeeEngineV2;
-use App\Services\PaymentIntentService;
-use App\Services\SettlementReportService;
 use App\Services\PaymentService;
-use App\Services\Webhook\WebhookDispatcher;
 use App\Services\QRCodeService;
 use App\Services\TransactionService;
 use App\Services\WalletService;
@@ -65,12 +54,6 @@ class AppServiceProvider extends ServiceProvider
 
         // Bind PaymentService with dependency injection
         $this->app->singleton(PaymentService::class, fn ($app) => new PaymentService($app->make(PaymentGatewayFactory::class)));
-        $this->app->singleton(WebhookDispatcher::class);
-        $this->app->singleton(FraudRuleEngine::class);
-        $this->app->singleton(LedgerService::class);
-        $this->app->singleton(PaymentIntentService::class);
-        $this->app->singleton(SettlementReportService::class);
-        $this->app->singleton(FeeEngineV2::class);
     }
 
     /**
@@ -169,11 +152,5 @@ class AppServiceProvider extends ServiceProvider
     protected function configureEventListeners(): void
     {
         Event::listen(Verified::class, AwardSignupBonusOnVerified::class);
-
-        $listener = LogPaymentIntentEvent::class;
-        Event::listen(PaymentIntentCreated::class, [$listener, 'handleCreated']);
-        Event::listen(PaymentIntentRequiresAction::class, [$listener, 'handleRequiresAction']);
-        Event::listen(PaymentIntentSucceeded::class, [$listener, 'handleSucceeded']);
-        Event::listen(PaymentIntentStatusChanged::class, [$listener, 'handleStatusChanged']);
     }
 }

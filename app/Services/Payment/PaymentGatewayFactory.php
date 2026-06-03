@@ -16,7 +16,6 @@ use App\Services\Payment\Cryptomus\CryptomusPaymentGateway;
 use App\Services\Payment\Flutterwave\FlutterwavePaymentGateway;
 use App\Services\Payment\Instamojo\InstamojoPaymentGateway;
 use App\Services\Payment\Mollie\MolliePaymentGateway;
-use App\Services\Payment\Mpesa\MpesaPaymentGateway;
 use App\Services\Payment\Moneroo\MonerooPaymentGateway;
 use App\Services\Payment\MTN\MTNPaymentGateway;
 use App\Services\Payment\Nowpayments\NowpaymentsPaymentGateway;
@@ -69,7 +68,6 @@ class PaymentGatewayFactory
             'airtel'       => App::make(AirtelPaymentGateway::class),
             'binance'      => App::make(BinancePaymentGateway::class),
             'bitnob'       => App::make(BitnobPaymentGateway::class),
-            'mpesa'        => App::make(MpesaPaymentGateway::class),
 
             default => throw new Exception(sprintf('Unsupported payment gateway: %s', $gatewayCode)),
         };

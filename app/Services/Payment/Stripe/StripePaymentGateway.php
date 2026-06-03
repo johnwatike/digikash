@@ -5,9 +5,7 @@ namespace App\Services\Payment\Stripe;
 use App\Enums\TrxStatus;
 use App\Models\PaymentGateway;
 use App\Models\Transaction as TransactionModel;
-use App\Services\Payment\Concerns\HasStandardGatewayCapabilities;
 use App\Services\Payment\PaymentGateway as PaymentGatewayInterface;
-use App\Services\Payment\PaymentGatewayCapabilities;
 use App\Support\WithdrawFieldNormalizer;
 use Exception;
 use Illuminate\Http\JsonResponse;
@@ -22,9 +20,8 @@ use Stripe\Webhook;
 use Transaction;
 use UnexpectedValueException;
 
-class StripePaymentGateway implements PaymentGatewayInterface, PaymentGatewayCapabilities
+class StripePaymentGateway implements PaymentGatewayInterface
 {
-    use HasStandardGatewayCapabilities;
     private const array ZERO_DECIMAL_CURRENCIES = [
         'bif',
         'clp',
@@ -354,33 +351,6 @@ class StripePaymentGateway implements PaymentGatewayInterface, PaymentGatewayCap
     /**
      * @return array<string, mixed>
      */
-    public function supports3DS(): bool
-    {
-        return true;
-    }
-
-    public function supportsCapture(): bool
-    {
-        return true;
-    }
-
-    public function supportsRefund(): bool
-    {
-        return true;
-    }
-
-    public function refund(string $providerReference, float $amount, ?string $currency = null): array
-    {
-        $refund = \Stripe\Refund::create([
-            'payment_intent' => $providerReference,
-            'amount'         => $currency && in_array(strtolower($currency), self::ZERO_DECIMAL_CURRENCIES, true)
-                ? (int) $amount
-                : (int) round($amount * 100),
-        ]);
-
-        return $this->stripeObjectToArray($refund);
-    }
-
     private function stripeObjectToArray(mixed $value): array
     {
         if (is_object($value) && method_exists($value, 'toArray')) {

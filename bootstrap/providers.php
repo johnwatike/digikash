@@ -5,7 +5,6 @@ use App\Providers\AppServiceProvider;
 use App\Providers\AuthServiceProvider;
 use App\Providers\BroadcastServiceProvider;
 use App\Providers\FeatureServiceProvider;
-use App\Providers\IntegrationServiceProvider;
 use App\Providers\PaymentServiceProvider;
 use App\Providers\ViewComposerServiceProvider;
 use Spatie\Permission\PermissionServiceProvider;
@@ -16,7 +15,6 @@ return [
     AuthServiceProvider::class,
     BroadcastServiceProvider::class,
     FeatureServiceProvider::class,
-    IntegrationServiceProvider::class,
     PaymentServiceProvider::class,
     ViewComposerServiceProvider::class,
     PermissionServiceProvider::class,

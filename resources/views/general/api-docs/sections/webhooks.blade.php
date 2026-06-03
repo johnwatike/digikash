@@ -17,7 +17,7 @@
     <!-- Webhook Overview -->
     <div class="api-alert api-alert-info">
         <strong><i class="fas fa-info-circle me-2"></i>{{ __('Reliable Delivery') }}</strong>
-        {{ __(setting('site_title').' delivers webhooks with exponential backoff (up to 10 attempts), ordered per payment resource, HMAC signing via X-Webhook-Signature, and dashboard replay. Use Idempotency-Key on POST /api/v1/initiate-payment and POST /api/v2/payment-intents. Sandbox test: POST /api/v1/test_webhooks.') }}
+        {{ __(setting('site_title').' retries timeout webhook deliveries up to 3 attempts. Your endpoint should return a 2xx response as soon as the payload is safely queued or processed.') }}
     </div>
 
     <!-- Webhook Headers -->

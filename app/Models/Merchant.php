@@ -41,7 +41,6 @@ class Merchant extends Model
         'current_mode',
         'sandbox_enabled',
         'webhook_url',
-        'enforce_unique_ref_trx',
     ];
 
     protected $hidden = ['api_key', 'api_secret', 'test_api_key', 'test_api_secret'];
@@ -54,9 +53,8 @@ class Merchant extends Model
     protected $casts = [
         'fee'             => 'double',
         'status'          => MerchantStatus::class,
-        'sandbox_enabled'         => 'boolean',
-        'enforce_unique_ref_trx'  => 'boolean',
-        'current_mode'            => EnvironmentMode::class,
+        'sandbox_enabled' => 'boolean',
+        'current_mode'    => EnvironmentMode::class,
     ];
 
     /**
@@ -255,36 +253,6 @@ class Merchant extends Model
     {
         return $this->belongsToMany(DepositMethod::class, 'merchant_deposit_methods')
             ->withTimestamps();
-    }
-
-    public function paymentIntents(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(PaymentIntent::class);
-    }
-
-    public function webhookEndpoints(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(WebhookEndpoint::class);
-    }
-
-    public function reserves(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(MerchantReserve::class);
-    }
-
-    public function teamMembers(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(MerchantTeamMember::class);
-    }
-
-    public function mpesaShortcodes(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\App\Models\Mpesa\MpesaShortcode::class);
-    }
-
-    public function settlementSchedules(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(MerchantSettlementSchedule::class);
     }
 
     /**

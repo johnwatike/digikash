@@ -358,17 +358,6 @@ Route::prefix('user')->as('user.')->middleware(['auth', 'auth.session', 'account
         Route::get('merchant/{merchant}/config', [MerchantController::class, 'merchantConfig'])->name('merchant.config');
         Route::put('merchant/{merchant}/payment-methods', [MerchantController::class, 'updatePaymentMethods'])->name('merchant.payment-methods.update');
         Route::post('merchant/switch-environment', [MerchantController::class, 'switchEnvironment'])->name('merchant.switch-environment');
-        Route::get('merchant/{merchant}/webhooks', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'webhooks'])->name('merchant.webhooks');
-        Route::post('merchant/{merchant}/webhooks', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'storeWebhook'])->name('merchant.webhooks.store');
-        Route::post('merchant/{merchant}/webhooks/deliveries/{deliveryId}/replay', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'replayWebhook'])->name('merchant.webhooks.replay');
-        Route::get('merchant/{merchant}/mpesa', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'mpesa'])->name('merchant.mpesa');
-        Route::post('merchant/{merchant}/mpesa/shortcodes', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'storeShortcode'])->name('merchant.mpesa.shortcodes.store');
-        Route::get('merchant/{merchant}/mpesa/qr/{shortcode}', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'mpesaQr'])->name('merchant.mpesa.qr');
-        Route::post('merchant/{merchant}/mpesa/stk-simulate', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'stkSimulate'])->name('merchant.mpesa.stk-simulate');
-        Route::get('merchant/{merchant}/settlements', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'settlements'])->name('merchant.settlements');
-        Route::get('merchant/{merchant}/settlements/export', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'exportSettlements'])->name('merchant.settlements.export');
-        Route::get('merchant/{merchant}/team', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'team'])->name('merchant.team');
-        Route::post('merchant/{merchant}/team', [\App\Http\Controllers\Frontend\MerchantPspController::class, 'storeTeamMember'])->name('merchant.team.store');
         // The legacy merchant QR / payment-link flow has been merged into
         // the unified Payment Link module (see user.payment-links.*).
         // Merchants now create per-shop payment links from there.
@@ -420,17 +409,6 @@ Route::post('/webhooks/bitnob', BitnobWebhookController::class)
     ->middleware('bitnob.signature')
     ->name('webhooks.bitnob');
 
-Route::post('/integrations/{code}/webhook', [\App\Http\Controllers\IntegrationWebhookController::class, 'handle'])
-    ->name('integrations.webhook');
-
-Route::prefix('webhooks/mpesa')->as('webhooks.mpesa.')->group(function () {
-    Route::post('stk-callback', [\App\Http\Controllers\Webhook\MpesaWebhookController::class, 'stkCallback'])->name('stk-callback');
-    Route::post('c2b/{shortcodeId}/validation', [\App\Http\Controllers\Webhook\MpesaWebhookController::class, 'c2bValidation'])->name('c2b.validation');
-    Route::post('c2b/{shortcodeId}/confirmation', [\App\Http\Controllers\Webhook\MpesaWebhookController::class, 'c2bConfirmation'])->name('c2b.confirmation');
-    Route::post('reversal-result', [\App\Http\Controllers\Webhook\MpesaWebhookController::class, 'reversalResult'])->name('reversal-result');
-    Route::post('reversal-timeout', [\App\Http\Controllers\Webhook\MpesaWebhookController::class, 'reversalTimeout'])->name('reversal-timeout');
-});
-
 // Payment Status Routes
 Route::prefix('status')->as('status.')->controller(StatusController::class)->group(function () {
     Route::match(['get', 'post'], 'success', 'success')->name('success');
@@ -447,10 +425,6 @@ Route::prefix('payment')->as('payment.')->controller(MerchantPaymentReceiveContr
     Route::get('wallet-pay/{token}', 'walletPayment')->name('wallet.pay');
     Route::post('complete', 'completePayment')->name('complete')->middleware(['feature.enabled:merchant_payment']);
     Route::match(['get', 'post'], 'with-account', 'payWithAccount')->name('with.account')->middleware(['auth', 'feature.enabled:merchant_payment']);
-    Route::get('mpesa/checkout', [\App\Http\Controllers\Frontend\MpesaCheckoutController::class, 'checkout'])->name('mpesa.checkout');
-    Route::post('mpesa/checkout', [\App\Http\Controllers\Frontend\MpesaCheckoutController::class, 'submit'])->name('mpesa.checkout.submit');
-    Route::get('mpesa/paybill', [\App\Http\Controllers\Frontend\MpesaCheckoutController::class, 'paybill'])->name('mpesa.paybill');
-    Route::get('mpesa/stk-wait', [\App\Http\Controllers\Frontend\MpesaCheckoutController::class, 'stkWait'])->name('mpesa.stk-wait');
 });
 
 // ========================== Public Payment Link Routes =============================

@@ -46,12 +46,6 @@
                         </span>
                         <h2>{{ $merchant->business_name }}</h2>
                         <p>{{ __('Manage mode, keys, gateways, and launch checks from one focused workspace.') }}</p>
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <a href="{{ route('user.merchant.webhooks', $merchant) }}" class="btn btn-sm btn-outline-primary">{{ __('Webhooks') }}</a>
-                            <a href="{{ route('user.merchant.mpesa', $merchant) }}" class="btn btn-sm btn-outline-primary">{{ __('M-PESA') }}</a>
-                            <a href="{{ route('user.merchant.settlements', $merchant) }}" class="btn btn-sm btn-outline-primary">{{ __('Settlements') }}</a>
-                            <a href="{{ route('user.merchant.team', $merchant) }}" class="btn btn-sm btn-outline-primary">{{ __('Team') }}</a>
-                        </div>
                     </div>
                 </div>
 

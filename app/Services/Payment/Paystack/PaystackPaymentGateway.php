@@ -5,9 +5,7 @@ namespace App\Services\Payment\Paystack;
 use App\Enums\TrxStatus;
 use App\Models\PaymentGateway;
 use App\Models\Transaction as TransactionModel;
-use App\Services\Payment\Concerns\HasStandardGatewayCapabilities;
 use App\Services\Payment\PaymentGateway as PaymentGatewayInterface;
-use App\Services\Payment\PaymentGatewayCapabilities;
 use App\Services\TransactionService;
 use App\Support\WithdrawFieldNormalizer;
 use Exception;
@@ -19,9 +17,8 @@ use Illuminate\Support\Str;
 use Throwable;
 use Transaction;
 
-class PaystackPaymentGateway implements PaymentGatewayInterface, PaymentGatewayCapabilities
+class PaystackPaymentGateway implements PaymentGatewayInterface
 {
-    use HasStandardGatewayCapabilities;
     private const BASE_URL = 'https://api.paystack.co';
 
     /**
@@ -518,35 +515,5 @@ class PaystackPaymentGateway implements PaymentGatewayInterface, PaymentGatewayC
         }
 
         return $redacted;
-    }
-
-    public function supports3DS(): bool
-    {
-        return true;
-    }
-
-    public function supportsCapture(): bool
-    {
-        return false;
-    }
-
-    public function supportsRefund(): bool
-    {
-        return true;
-    }
-
-    public function refund(string $providerReference, float $amount, ?string $currency = null): array
-    {
-        $response = Http::withToken($this->secretKey)
-            ->post(self::BASE_URL.'/refund', [
-                'transaction' => $providerReference,
-                'amount'      => (int) round($amount * 100),
-            ]);
-
-        if (! $response->successful()) {
-            throw new Exception('Paystack refund failed: '.$response->body());
-        }
-
-        return (array) $response->json('data', []);
     }
 }

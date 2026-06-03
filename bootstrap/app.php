@@ -35,7 +35,6 @@ use App\Http\Middleware\BlockIp;
 use App\Http\Middleware\CheckUserFeature;
 use App\Http\Middleware\CheckUserStatus;
 use App\Http\Middleware\DemoMode;
-use App\Http\Middleware\EnsureIdempotency;
 use App\Http\Middleware\EnsureAdminFeatureEnabled;
 use App\Http\Middleware\EnsureApplicationInstalled;
 use App\Http\Middleware\EnsureFeatureEnabled;
@@ -109,7 +108,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'ipn/*',
             'webhooks/bitnob',
-            'webhooks/mpesa/*',
         ]);
         $middleware->append([
             SecureHeaders::class,
@@ -160,7 +158,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'p2p.country'          => EnsureP2PCountryAllowed::class,
             'demo'                 => DemoMode::class,
             'bitnob.signature'     => VerifyBitnobSignature::class,
-            'idempotency'          => EnsureIdempotency::class,
 
         ]);
     })

@@ -17,14 +17,11 @@ use App\Services\Handlers\Interfaces\FailHandlerInterface;
 use App\Services\Handlers\Interfaces\SuccessHandlerInterface;
 use App\Services\Handlers\PaymentHandler;
 use App\Services\Handlers\RequestMoneyHandler;
-use App\Enums\WebhookEventType;
-use App\Models\PaymentIntent;
 use App\Services\Handlers\WithdrawHandler;
-use App\Services\PaymentIntentService;
-use App\Services\Webhook\WebhookDispatcher;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Wallet;
 
@@ -355,64 +352,71 @@ class TransactionService
         }
 
         try {
-            $trxData     = $transaction->trx_data ?? [];
+            $trxData     = $transaction->trx_data;
             $merchant    = Merchant::findOrFail($trxData['merchant_id']);
             $environment = ($trxData['environment'] ?? EnvironmentMode::PRODUCTION->value) === EnvironmentMode::SANDBOX->value
                 || (bool) ($trxData['is_sandbox'] ?? false)
-                ? EnvironmentMode::SANDBOX->value
-                : EnvironmentMode::PRODUCTION->value;
+                ? EnvironmentMode::SANDBOX
+                : EnvironmentMode::PRODUCTION;
+            $clientSecret = $environment === EnvironmentMode::SANDBOX
+                ? (string) ($merchant->test_api_secret ?? '')
+                : (string) ($merchant->getRawOriginal('api_secret') ?: '');
 
-            $dispatcher = app(WebhookDispatcher::class);
-            $intentService = app(PaymentIntentService::class);
+            if ($clientSecret === '' || empty($trxData['ipn_url'])) {
+                Log::warning('IPN skipped because secret or callback URL is missing.', [
+                    'transaction_id' => $transaction->trx_id,
+                    'environment'    => $environment->value,
+                ]);
 
-            if (! empty($trxData['ipn_url'])) {
-                $dispatcher->ensureLegacyIpnEndpoint($merchant, $trxData['ipn_url'], $environment);
+                return;
             }
 
-            $legacyPayload = $trxData;
-            unset($legacyPayload['merchant_id']);
-            $legacyPayload['trx_id'] = $transaction->trx_id;
+            unset($trxData['merchant_id']);
+            $trxData['trx_id'] = $transaction->trx_id;
 
-            $legacyWrapped = [
-                'data'      => $legacyPayload,
+            $payload = [
+                'data'      => $trxData,
                 'message'   => $message,
                 'status'    => $status->value,
                 'timestamp' => now()->timestamp,
             ];
 
-            $legacyEventType = $status === TrxStatus::COMPLETED
-                ? WebhookEventType::PAYMENT_COMPLETED
-                : WebhookEventType::PAYMENT_FAILED;
+            $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($encodedPayload === false) {
+                Log::error('IPN encoding failed.', ['transaction_id' => $transaction->trx_id]);
 
-            $dispatcher->dispatch(
-                $merchant,
-                $legacyEventType,
-                $legacyWrapped,
-                $transaction->trx_id,
-                $environment,
-            );
+                return;
+            }
 
-            $intent = PaymentIntent::query()->where('trx_id', $transaction->trx_id)->first();
+            $signature = hash_hmac('sha256', $encodedPayload, $clientSecret);
 
-            if ($intent) {
-                $eventType = match ($status) {
-                    TrxStatus::COMPLETED => WebhookEventType::PAYMENT_INTENT_SUCCEEDED,
-                    TrxStatus::FAILED, TrxStatus::CANCELED => WebhookEventType::PAYMENT_INTENT_FAILED,
-                    default => null,
-                };
+            // Add retry logic for HTTP request to handle timeouts
+            $attempts   = 0;
+            $maxRetries = 3;
+            $delay      = 1000; // 1 second delay in milliseconds
 
-                if ($eventType) {
-                    $dispatcher->dispatch(
-                        $merchant,
-                        $eventType,
-                        $intentService->serializeIntent($intent->fresh()),
-                        $intent->pi_id,
-                        $environment,
-                    );
+            begin:
+            try {
+                $response = Http::withHeaders([
+                    'X-Signature'   => $signature,
+                    'X-Environment' => $environment->value,
+                    'Content-Type'  => 'application/json',
+                ])->withBody($encodedPayload, 'application/json')->post($trxData['ipn_url']);
+
+                if (! $response->successful()) {
+                    Log::error('IPN failed. Status Code: '.$response->status());
                 }
+            } catch (\Exception $e) {
+                $attempts++;
+                if ($attempts < $maxRetries && strpos($e->getMessage(), 'cURL error 28') !== false) {
+                    Log::warning('IPN timeout retry attempt '.$attempts.' of '.$maxRetries, ['transaction_id' => $transaction->trx_id]);
+                    usleep($delay * 1000); // Convert ms to microseconds
+                    goto begin;
+                }
+                Log::error('IPN error after retries: '.$e->getMessage(), ['transaction_id' => $transaction->trx_id]);
             }
         } catch (\Exception $e) {
-            Log::error('IPN/webhook dispatch error: '.$e->getMessage());
+            Log::error('IPN error: '.$e->getMessage());
         }
     }
 
